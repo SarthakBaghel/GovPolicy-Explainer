@@ -1,0 +1,5 @@
+faiss-cpu==1.8.0.post1
+numpy>=1.26.0,<2
+torch==2.2.2
+sentence-transformers==3.0.1
+tqdm>=4.66.0

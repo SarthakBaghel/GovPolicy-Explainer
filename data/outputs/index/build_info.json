@@ -1,0 +1,7 @@
+{
+  "vectors": 204,
+  "model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "device": "cpu",
+  "min_chars": 30,
+  "source_file": "data/outputs/policy_chunks.jsonl"
+}
