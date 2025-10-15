@@ -1,4 +1,8 @@
 # scripts/parse_pdfs.py
+
+# to run # from repo root
+# python scripts/parse_pdfs.py data/raw_pdfs data/outputs/policy_chunks.jsonl
+
 import argparse
 import json
 import re

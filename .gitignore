@@ -1,0 +1,72 @@
+# -----------------------
+# Python
+# -----------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Virtual environment
+backend/.venv/
+
+.env/
+
+# -----------------------
+# Logs
+# -----------------------
+*.log
+logs/
+*.sqlite3
+
+# -----------------------
+# IDEs
+# -----------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# -----------------------
+# MacOS
+# -----------------------
+.DS_Store
+
+# -----------------------
+# Python compiled files
+# -----------------------
+*.so
+*.dylib
+
+# -----------------------
+# Jupyter
+# -----------------------
+.ipynb_checkpoints
+
+# -----------------------
+# Backend outputs / data
+# -----------------------
+backend/data/outputs/index/
+backend/data/outputs/policy_chunks.jsonl
+backend/data/outputs/logs/
+
+# -----------------------
+# Frontend (Streamlit / React)
+# -----------------------
+frontend/__pycache__/
+frontend/node_modules/
+frontend/.next/
+frontend/build/
+frontend/dist/
+
+# -----------------------
+# OS / System
+# -----------------------
+Thumbs.db
+*.swp
+*.lock
