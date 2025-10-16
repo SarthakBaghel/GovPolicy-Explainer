@@ -54,6 +54,7 @@ logs/
 backend/data/outputs/index/
 backend/data/outputs/policy_chunks.jsonl
 backend/data/outputs/logs/
+backend/data/outputs/raw_pdfs/
 
 # -----------------------
 # Frontend (Streamlit / React)
