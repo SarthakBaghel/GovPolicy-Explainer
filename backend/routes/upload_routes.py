@@ -7,24 +7,34 @@ import shutil
 router = APIRouter()
 
 RAW_DIR = Path("backend/data/raw_pdfs")
-OUTPUT_JSONL = Path("backend/data/outputs/policy_chunks.jsonl")
-INDEX_DIR = Path("backend/data/outputs/index")
+OUTPUTS_ROOT = Path("backend/data/outputs")
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 @router.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
+    """Upload a PDF and process it into a per-document output folder.
+    
+    Returns doc_name which clients use to query/search that document.
+    """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     file_path = RAW_DIR / file.filename
 
     with file_path.open("wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    # Parse PDFs
-    parser = ParserService(str(RAW_DIR), str(OUTPUT_JSONL))
-    parser.parse_all_pdfs()
+    # Parse only the uploaded PDF into its own output folder
+    parser = ParserService(str(RAW_DIR), str(OUTPUTS_ROOT))
+    out_dir, out_jsonl = parser.parse_pdf_file(file_path)
 
-    # Build FAISS index
-    retriever = RetrieverService(str(OUTPUT_JSONL), str(INDEX_DIR), EMBED_MODEL)
-    retriever.build_faiss_index()
+    # Build FAISS index into the document's index folder
+    index_dir = out_dir / "index"
+    retriever = RetrieverService(str(out_jsonl), str(index_dir), EMBED_MODEL)
+    retriever.build_faiss_index(chunks_file=str(out_jsonl), index_dir=str(index_dir))
 
-    return {"message": f"Uploaded, parsed, and indexed {file.filename}"}
+    return {
+        "message": f"Uploaded, parsed, and indexed {file.filename}",
+        "outputs": str(out_dir),
+        "doc_name": out_dir.name,
+        "chunks_file": str(out_jsonl),
+        "index_dir": str(index_dir)
+    }
