@@ -11,7 +11,10 @@ OUTPUTS_ROOT = Path("backend/data/outputs")
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 @router.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(
+    file: UploadFile,
+    user_id: str = Depends(get_current_user_id)
+):
     """Upload a PDF and process it into a per-document output folder.
     
     Returns doc_name which clients use to query/search that document.
