@@ -7,7 +7,7 @@ from backend.core.security import hash_password, verify_password
 from backend.core.jwt_utils import create_access_token
 from backend.repositories.user_repo import load_users, save_users
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 class RegisterRequest(BaseModel):
     email: str

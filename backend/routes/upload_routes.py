@@ -1,7 +1,8 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends
 from pathlib import Path
 from backend.services.parser_service import ParserService
 from backend.services.retriever_service import RetrieverService
+from backend.core.dependencies import get_current_user_id
 import shutil
 
 router = APIRouter()
