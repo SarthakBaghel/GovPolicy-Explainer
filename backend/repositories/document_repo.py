@@ -53,11 +53,25 @@ def add_document_to_user(user_id: str, doc_id: str) -> bool:
         True if successful
     """
     users_collection = get_users_collection()
-    result = users_collection.update_one(
-        {"id": user_id},
-        {"$addToSet": {"documents": doc_id}}  # $addToSet prevents duplicates
-    )
-    return result.modified_count > 0
+    try:
+        result = users_collection.update_one(
+            {"id": user_id},
+            {"$addToSet": {"documents": doc_id}}  # $addToSet prevents duplicates
+        )
+        
+        if result.modified_count > 0:
+            print(f"✓ Added doc_id {doc_id} to user {user_id}")
+            return True
+        elif result.matched_count > 0:
+            # User exists but document already in array
+            print(f"✓ Document {doc_id} already in user's documents array")
+            return True
+        else:
+            print(f"✗ User {user_id} not found in database")
+            return False
+    except Exception as e:
+        print(f"✗ Error adding document to user: {e}")
+        return False
 
 def get_user_documents(user_id: str) -> List[dict]:
     """

@@ -8,6 +8,8 @@ import requests
 import json
 from pathlib import Path
 import tempfile
+import time
+from uuid import uuid4
 
 BASE_URL = "http://localhost:8000/api"
 
@@ -15,9 +17,11 @@ class TestDocumentFlow:
     def __init__(self):
         self.token = None
         self.user_id = None
-        self.test_email = "doctest@example.com"
+        # Use unique email for each test run
+        self.test_email = f"doctest-{uuid4().hex[:8]}@example.com"
         self.test_password = "TestPassword123"
         self.uploaded_doc_ids = []
+        print(f"\n📧 Using email for this test run: {self.test_email}")
     
     def test_registration(self):
         """Register a test user"""
@@ -63,12 +67,14 @@ class TestDocumentFlow:
             return False
         except Exception as e:
             print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def test_upload_document(self, filename="policy_on_adoption_of_oss.pdf"):
         """Upload a test PDF document"""
         print("\n" + "="*60)
-        print("STEP 3: Upload Document")
+        print("STEP 3: Upload Document & Verify create_document()")
         print("="*60)
         
         # Use existing PDF file
@@ -97,7 +103,36 @@ class TestDocumentFlow:
                 doc_id = data.get("doc_id")
                 self.uploaded_doc_ids.append(doc_id)
                 print(f"\n✓ Document uploaded with ID: {doc_id}")
-                return True
+                
+                # Verify document was created in MongoDB
+                print("\n📋 Verifying document was saved to MongoDB...")
+                time.sleep(0.5)  # Give DB time to sync
+                
+                list_response = requests.get(
+                    f"{BASE_URL}/documents/documents",
+                    headers=headers
+                )
+                
+                if list_response.status_code == 200:
+                    docs = list_response.json().get("documents", [])
+                    doc_found = any(d["doc_id"] == doc_id for d in docs)
+                    
+                    if doc_found:
+                        print(f"✓ Document CONFIRMED in MongoDB!")
+                        found_doc = next(d for d in docs if d["doc_id"] == doc_id)
+                        print(f"  - doc_id: {found_doc['doc_id']}")
+                        print(f"  - user_id: {found_doc['user_id']}")
+                        print(f"  - filename: {found_doc['filename']}")
+                        print(f"  - file_size: {found_doc['file_size']} bytes")
+                        print(f"  - status: {found_doc['status']}")
+                        return True
+                    else:
+                        print(f"✗ Document NOT found in MongoDB!")
+                        print(f"  Documents in DB: {[d['doc_id'] for d in docs]}")
+                        return False
+                else:
+                    print(f"Error listing documents: {list_response.status_code}")
+                    return False
             else:
                 try:
                     error_data = response.json()

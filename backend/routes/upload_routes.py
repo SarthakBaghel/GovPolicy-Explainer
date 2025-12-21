@@ -64,9 +64,14 @@ async def upload_pdf(
             filename=file.filename,
             file_size=file.size
         )
+        print(f"✓ Document metadata saved to MongoDB with doc_id: {doc_id}")
         
         # Add document ID to user's document list
-        add_document_to_user(user_id, doc_id)
+        success = add_document_to_user(user_id, doc_id)
+        if not success:
+            print(f"⚠️  Warning: Could not add document {doc_id} to user {user_id}")
+        else:
+            print(f"✓ Document {doc_id} added to user's document list")
 
         return {
             "message": f"Uploaded, parsed, and indexed {file.filename}",
