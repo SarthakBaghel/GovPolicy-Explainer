@@ -1,7 +1,8 @@
 # backend/core/security.py
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use argon2id instead of bcrypt (no 72-byte limit, more modern)
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
