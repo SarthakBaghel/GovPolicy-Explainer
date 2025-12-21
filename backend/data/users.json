@@ -2,5 +2,9 @@
   "s@gmail.com": {
     "id": "f6ed96f1-44fa-4f98-a848-451d5054e519",
     "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$IoRQirGWkjLG+H8v5bwXAg$EKsMrjjyC5hAE127cWdoTL1HMByf0KusdH7ilfR4rKg"
+  },
+  "testuser@example.com": {
+    "id": "2c496de1-9af4-40a1-b0f4-938019acb6e9",
+    "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$hvB+T4lxLmXsXUuJce69tw$mX2SFl+RDhFIIBa8zzXorusv7whH5Uke7VMja1UJ7N0"
   }
 }
