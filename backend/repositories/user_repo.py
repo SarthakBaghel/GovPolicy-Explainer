@@ -18,7 +18,8 @@ def create_user(user_id: str, email: str, password_hash: str) -> dict:
     user_data = {
         "id": user_id,
         "email": email,
-        "password_hash": password_hash
+        "password_hash": password_hash,
+        "documents": []  # Initialize empty documents array
     }
     result = collection.insert_one(user_data)
     return {

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.rag_routes import router as rag_router
 from backend.routes.upload_routes import router as upload_router
 from backend.routes.auth_routes import router as auth_router
+from backend.routes.document_routes import router as document_router
 
 app = FastAPI(
     title="GovPolicy Explainer API",
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(upload_router, prefix="/api/rag", tags=["Upload"])
 app.include_router(rag_router, prefix="/api/rag", tags=["RAG"])
 app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
+app.include_router(document_router, prefix="/api/documents", tags=["Documents"])
 
 @app.get("/")
 def root():
