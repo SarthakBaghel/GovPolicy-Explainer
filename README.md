@@ -1,660 +1,160 @@
-# GovPolicy Explainer - Backend Setup Guide
+# GovPolicy Explainer
 
-A multilingual government policy Q&A system using RAG (Retrieval-Augmented Generation) with Ollama, FAISS, and FastAPI.
+GovPolicy Explainer is a FastAPI backend for uploading policy PDFs, breaking them into chunks, building FAISS indexes, and answering questions with Ollama. MongoDB is used for users and document metadata.
 
-## Prerequisites
+This repo is backend-only at the moment.
 
-Before you begin, ensure you have the following installed on your system:
+## What The Codebase Does
 
-### 1. **Python 3.10+**
-   - Download from [python.org](https://www.python.org/downloads/)
-   - Verify installation:
-     ```bash
-     python --version
-     ```
+- Registers users and issues JWT access tokens
+- Uploads PDFs through the API
+- Extracts headings, paragraphs, and tables from PDFs
+- Falls back to OCR for image-heavy pages
+- Builds a per-user, per-document FAISS index with SentenceTransformers
+- Stores document metadata in MongoDB
+- Lets users list, inspect, and delete their uploaded documents
 
-### 2. **MongoDB** (for user and document metadata storage)
-   - **macOS (using Homebrew):**
-     ```bash
-     brew tap mongodb/brew
-     brew install mongodb-community
-     brew services start mongodb-community
-     ```
-   - **Ubuntu/Debian:**
-     ```bash
-     sudo apt-get install -y mongodb
-     sudo systemctl start mongodb
-     ```
-   - **Windows:**
-     - Download from [mongodb.com](https://www.mongodb.com/try/download/community)
-     - Run installer and follow setup wizard
-   
-   - **Or use MongoDB Atlas (Cloud):**
-     - Create account at [mongodb.com/cloud](https://www.mongodb.com/cloud/atlas)
-     - Create a cluster and get connection string
-   
-   - **Verify installation:**
-     ```bash
-     mongo --version
-     # or test connection
-     mongosh
-     ```
+## Main Stack
 
-### 3. **Ollama** (for LLM inference)
-   - Download from [ollama.ai](https://ollama.ai)
-   - Install and start the Ollama service
-   - Verify installation:
-     ```bash
-     ollama --version
-     ```
+- FastAPI
+- MongoDB
+- FAISS
+- SentenceTransformers
+- Ollama (`phi3:mini` by default)
+- PyMuPDF, pdfplumber, pytesseract
 
-### 4. **Tesseract OCR** (for scanned PDF processing)
-   - **macOS:**
-     ```bash
-     brew install tesseract
-     ```
-   - **Ubuntu/Debian:**
-     ```bash
-     sudo apt-get install tesseract-ocr
-     ```
-   - **Windows:**
-     - Download installer from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
-     - Add to PATH environment variable
+## Repo Shape
 
-### 5. **FAISS** (Vector database)
-   - Installed via `requirements.txt` (faiss-cpu)
+```text
+backend/
+  main.py                  FastAPI app entrypoint
+  routes/                  Auth, upload, document, and RAG routes
+  services/                Parsing, retrieval, and RAG service wrappers
+  scripts/                 PDF parsing, indexing, and CLI helpers
+  repositories/            MongoDB access for users and documents
+  core/                    Mongo config, JWT helpers, password hashing
+  data/
+    raw_pdfs/              Temporary upload location
+    outputs/               Parsed chunks and FAISS indexes
 
----
+inspect_mongodb.py         Local MongoDB inspection helper
+migrate_mongodb.py         Local migration helper
+test_document_flow.py      End-to-end API smoke script
+test_verify_documents.py   MongoDB/document verification script
+```
 
 ## Quick Start
 
-### Step 1: Clone the Repository
+### 1. Create a virtual environment
+
 ```bash
-git clone <your-repo-url>
-cd govpolicy-explainer
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-### Step 2: Set Up Python Virtual Environment
+### 2. Install Python dependencies
+
 ```bash
-# Create virtual environment
-python -m venv backend/.venv
-
-# Activate virtual environment
-# On macOS/Linux:
-source backend/.venv/bin/activate
-
-# On Windows:
-backend\.venv\Scripts\activate
+pip install -r backend/requirements.txt
+pip install python-multipart python-jose passlib[argon2] Pillow
 ```
 
-### Step 3: Configure MongoDB Connection
-Create a `.env` file in the project root:
-```bash
-# MongoDB Configuration
-MONGODB_URL=mongodb://localhost:27017
-DATABASE_NAME=govpolicy_explainer
+The second command is needed because those packages are imported by the code but are not currently listed in `backend/requirements.txt`.
 
-# JWT Configuration (optional - uses defaults)
-SECRET_KEY=your-secret-key-here
-ALGORITHM=HS256
-```
+### 3. Install system dependencies
 
-**For MongoDB Atlas (Cloud):**
-```bash
-MONGODB_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>
-DATABASE_NAME=govpolicy_explainer
-```
+- MongoDB
+- Ollama
+- Tesseract OCR
 
-Ensure MongoDB is running:
-```bash
-# macOS
-brew services start mongodb-community
+The OCR path uses `eng+hin`, so make sure your Tesseract install includes Hindi language data if you want Hindi OCR to work.
 
-# Ubuntu/Debian
-sudo systemctl start mongodb
+### 4. Start required services
 
-# Or verify local MongoDB is accessible
-mongosh
-```
-
-### Step 4: Install Dependencies
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-### Step 5: Download Ollama Model
-Start the Ollama service, then pull the required model:
 ```bash
 ollama pull phi3:mini
 ```
 
-You can also use other models:
-```bash
-ollama pull llama2        # Alternative: Llama 2
-ollama pull mistral       # Alternative: Mistral
+Start MongoDB and make sure Ollama is running before you launch the API.
+
+### 5. Create `.env` in the project root
+
+```env
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=govpolicy_explainer
 ```
 
-Verify the model is available:
-```bash
-ollama list
-```
+Only MongoDB settings are read from `.env` right now. JWT settings are hardcoded in `backend/core/auth_config.py`.
 
-### Step 6: Start the Backend Server
-From the project root with venv activated:
+### 6. Run the API
+
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-The API will be available at:
-- **Base URL:** `http://localhost:8000`
-- **API Docs:** `http://localhost:8000/docs` (Swagger UI)
-- **ReDoc:** `http://localhost:8000/redoc`
+Useful URLs:
 
-You should see MongoDB connection message:
-```
-✓ Connected to MongoDB
-```
+- API root: `http://localhost:8000/`
+- Swagger docs: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
----
+## Typical API Flow
 
-## Running the Application
+### Register
 
-### FastAPI Backend Server
-Start the API server from the project root:
 ```bash
-# Ensure virtual environment is activated
-source backend/.venv/bin/activate
-
-# Run the server
-uvicorn backend.main:app --reload
-```
-
-The API will be available at:
-- **Base URL:** `http://localhost:8000`
-- **API Docs:** `http://localhost:8000/docs` (Swagger UI)
-- **ReDoc:** `http://localhost:8000/redoc`
-
----
-
-## Authentication & User Management
-
-### 1. Register a New User
-**POST** `/api/auth/register`
-```bash
-curl -X POST "http://localhost:8000/api/auth/register" \
+curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePassword123"
-  }'
+  -d '{"email":"user@example.com","password":"SecurePassword123"}'
 ```
 
-**Response:**
-```json
-{
-  "message": "User registered successfully"
-}
-```
+### Login
 
-### 2. Login
-**POST** `/api/auth/login`
 ```bash
-curl -X POST "http://localhost:8000/api/auth/login" \
+curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePassword123"
-  }'
+  -d '{"email":"user@example.com","password":"SecurePassword123"}'
 ```
 
-**Response:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
+Use the returned bearer token for authenticated routes.
 
-**Use the token for authenticated requests:**
-```bash
-curl -H "Authorization: Bearer <access_token>" \
-  http://localhost:8000/api/documents/documents
-```
-
----
-
-## Document Management
-
-### 1. Upload Document
-**POST** `/api/rag/upload`
-
-Requires authentication. Documents are:
-- Parsed into chunks
-- Indexed with FAISS embeddings
-- Stored in MongoDB with metadata
-- Original PDF is deleted (only chunks & index retained)
+### Upload a PDF
 
 ```bash
-curl -X POST "http://localhost:8000/api/rag/upload" \
-  -H "Authorization: Bearer <access_token>" \
+curl -X POST http://localhost:8000/api/rag/upload \
+  -H "Authorization: Bearer <token>" \
   -F "file=@policy.pdf"
 ```
 
-**Response:**
-```json
-{
-  "message": "Uploaded, parsed, and indexed policy.pdf",
-  "doc_id": "550e8400-e29b-41d4-a716-446655440000",
-  "filename": "policy.pdf",
-  "outputs": "backend/data/outputs/{user_id}/{doc_id}",
-  "chunks_file": "backend/data/outputs/{user_id}/{doc_id}/policy_chunks.jsonl",
-  "index_dir": "backend/data/outputs/{user_id}/{doc_id}/index"
-}
-```
+On a successful upload, the app:
 
-### 2. List User Documents
-**GET** `/api/documents/documents`
+- saves the file briefly under `backend/data/raw_pdfs/{user_id}/`
+- parses it into `backend/data/outputs/{user_id}/{doc_id}/policy_chunks.jsonl`
+- builds a FAISS index under `backend/data/outputs/{user_id}/{doc_id}/index/`
+- deletes the original uploaded PDF
+- stores document metadata in MongoDB
 
-Requires authentication. Returns all documents for the logged-in user.
+### List or delete uploaded documents
 
-```bash
-curl -H "Authorization: Bearer <access_token>" \
-  http://localhost:8000/api/documents/documents
-```
+- `GET /api/documents/documents`
+- `GET /api/documents/documents/{doc_id}`
+- `DELETE /api/documents/documents/{doc_id}`
 
-**Response:**
-```json
-{
-  "user_id": "67796fef-3205-4248-b16c-6acd29213730",
-  "documents": [
-    {
-      "_id": "69485f3ccf573e1503e9c4e6",
-      "doc_id": "550e8400-e29b-41d4-a716-446655440000",
-      "user_id": "67796fef-3205-4248-b16c-6acd29213730",
-      "filename": "policy.pdf",
-      "file_size": 233191,
-      "created_at": "2025-12-21T20:57:32.113000",
-      "status": "indexed"
-    }
-  ],
-  "count": 1
-}
-```
+## Important Notes
 
-### 3. Get Document Details
-**GET** `/api/documents/documents/{doc_id}`
+- The upload and document-management flow is the most complete path in the repo today.
+- The `POST /api/rag/query`, `POST /api/rag/search`, and `GET /api/rag/indexes` routes still reflect an older index layout. They are useful as developer-facing helpers, but they do not fully match the per-user upload structure.
+- Those RAG routes are not protected by JWT in the current code.
+- The root-level helper scripts are local/debug oriented and include hardcoded absolute paths, so they may need small edits before reuse on another machine.
 
-Requires authentication.
+## Sample Data
 
-```bash
-curl -H "Authorization: Bearer <access_token>" \
-  http://localhost:8000/api/documents/documents/550e8400-e29b-41d4-a716-446655440000
-```
+The repo already contains example PDFs and generated output under `backend/data/`, which makes it easier to inspect the expected storage layout.
 
-### 4. Delete Document
-**DELETE** `/api/documents/documents/{doc_id}`
+## If Something Fails
 
-Requires authentication. Deletes document from MongoDB and local storage.
-
-```bash
-curl -X DELETE \
-  -H "Authorization: Bearer <access_token>" \
-  http://localhost:8000/api/documents/documents/550e8400-e29b-41d4-a716-446655440000
-```
-
----
-
-## RAG Query Endpoints
-
-### Query Documents
-**POST** `/api/rag/query`
-
-```bash
-curl -X POST "http://localhost:8000/api/rag/query" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "What are the eligibility criteria?",
-    "k": 3
-  }'
-```
-
-### Search Documents
-**POST** `/api/rag/search`
-
-```bash
-curl -X POST "http://localhost:8000/api/rag/search" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "policy details",
-    "k": 3
-  }'
-```
-
----
-
-## Command-Line Interface (CLI)
-For interactive Q&A testing:
-```bash
-python -m backend.scripts.rag_cli
-```
-
-Type your questions and get answers. Type `exit` or `quit` to quit.
-
----
-
-## Project Structure
-
-```
-backend/
-├── main.py                    # FastAPI app entry point
-├── requirements.txt           # Python dependencies
-├── core/
-│   ├── mongo_config.py       # MongoDB connection
-│   ├── jwt_utils.py          # JWT token management
-│   ├── security.py           # Password hashing & verification
-│   ├── dependencies.py       # Authentication dependencies
-│   └── auth_config.py        # Auth configuration
-├── data/
-│   ├── raw_pdfs/            # Temporary PDF storage (deleted after processing)
-│   └── outputs/
-│       └── {user_id}/
-│           └── {doc_id}/
-│               ├── policy_chunks.jsonl  # Parsed chunks
-│               └── index/               # FAISS index files
-├── models/
-│   └── user.py              # User data model
-├── repositories/
-│   ├── user_repo.py         # MongoDB user operations
-│   └── document_repo.py      # MongoDB document operations
-├── routes/
-│   ├── auth_routes.py       # Authentication endpoints
-│   ├── document_routes.py    # Document management endpoints
-│   ├── upload_routes.py      # PDF upload & processing
-│   └── rag_routes.py         # RAG query endpoints
-├── scripts/
-│   ├── parse_pdfs.py        # PDF parsing & chunking
-│   ├── retriever.py         # FAISS index management
-│   ├── rag_pipeline.py      # RAG query pipeline
-│   └── rag_cli.py           # CLI interface
-└── services/
-    ├── parser_service.py     # PDF parsing service
-    ├── retriever_service.py  # Retrieval service
-    └── rag_service.py        # RAG service
-```
-
----
-
-## Database Schema
-
-### MongoDB Collections
-
-#### `users`
-```json
-{
-  "_id": ObjectId,
-  "id": "uuid-string",
-  "email": "user@example.com",
-  "password_hash": "hashed_password",
-  "documents": ["doc-id-1", "doc-id-2"],
-  "created_at": ISODate
-}
-```
-
-#### `documents`
-```json
-{
-  "_id": ObjectId,
-  "doc_id": "uuid-string",
-  "user_id": "uuid-string",
-  "filename": "policy.pdf",
-  "file_size": 233191,
-  "created_at": ISODate,
-  "status": "indexed"
-}
-```
-
----
-
-## Configuration
-
-### Environment Variables (.env file)
-Create a `.env` file in the project root:
-
-```env
-# MongoDB Configuration
-MONGODB_URL=mongodb://localhost:27017
-# Or for MongoDB Atlas:
-# MONGODB_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/
-DATABASE_NAME=govpolicy_explainer
-
-# JWT Configuration
-SECRET_KEY=your-secret-key-change-this-in-production
-ALGORITHM=HS256
-
-# Embedding Model (optional)
-EMBED_MODEL=sentence-transformers/all-MiniLM-L6-v2
-
-# Other
-TOKENIZERS_PARALLELISM=false
-```
-
-### Backend Configuration Files
-
-#### [backend/core/mongo_config.py](backend/core/mongo_config.py)
-- MongoDB connection settings
-- Database initialization
-
-#### [backend/routes/upload_routes.py](backend/routes/upload_routes.py)
-- `EMBED_MODEL`: Change embedding model
-- `OUTPUTS_ROOT`: Custom output directory
-
-#### [backend/scripts/rag_pipeline.py](backend/scripts/rag_pipeline.py)
-- `llm_model`: Change LLM model (default: `phi3:mini`)
-- Adjust prompt template
-
-#### [backend/scripts/parse_pdfs.py](backend/scripts/parse_pdfs.py)
-- `max_chars`: Chunk size (default: 1200)
-- `overlap`: Chunk overlap (default: 120)
-
----
-
-## Troubleshooting
-
-### MongoDB Connection Issues
-```
-ERROR: Could not connect to MongoDB
-```
-- Ensure MongoDB is running: `mongosh` or `mongo`
-- Check connection string in `.env`
-- For MongoDB Atlas, verify IP whitelisting
-- Check network connectivity
-
-### "User already registered" on multiple logins
-- Different email addresses are required for each user
-- Use unique emails: `user1@example.com`, `user2@example.com`
-
-### Authentication Token Expired
-- Login again to get a new token
-- Check token expiration time in [backend/core/jwt_utils.py](backend/core/jwt_utils.py)
-
-### "Ollama not found" error
-- Ensure Ollama is installed and the service is running
-- On macOS: `brew services start ollama`
-- Verify: `ollama list` shows available models
-
-### "phi3:mini not found" error
-```bash
-ollama pull phi3:mini
-```
-
-### "Tesseract not found" error
-- Install tesseract (see Prerequisites section)
-- On macOS: `brew install tesseract`
-
-### "No module named 'backend'" error
-- Ensure you're running from the repo root directory
-- Virtual environment is activated
-- Run: `source backend/.venv/bin/activate`
-
-### PDF Upload Fails with 500 Error
-- Check if PDF is valid and readable
-- Ensure sufficient disk space
-- Check backend logs for parsing errors
-- Verify FAISS and sentence-transformers are installed
-
-### FAISS Index Build Fails
-- Ensure `backend/data/raw_pdfs/` contains valid PDFs
-- Free up disk space
-- Reduce batch size if memory is limited
-
-### Memory Issues with Large PDFs
-- Reduce embedding batch size
-- Upload PDFs individually
-- Increase server RAM
-
-### Document Not Found After Upload
-- Verify MongoDB is running and accessible
-- Check MongoDB logs for errors
-- Ensure user is authenticated (JWT token is valid)
-
----
-
-## Testing the Backend
-
-### Run Complete Test Suite
-Test authentication, document upload, listing, and deletion:
-
-```bash
-python test_document_flow.py
-```
-
-Expected output:
-```
-✓ PASS   - Login
-✓ PASS   - Upload Document
-✓ PASS   - List Documents
-✓ PASS   - Get Document Info
-✓ PASS   - Delete Document
-
-Total: 5/6 tests passed
-```
-
-### Manual Testing with cURL
-
-**1. Register User:**
-```bash
-curl -X POST "http://localhost:8000/api/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "TestPass123"}'
-```
-
-**2. Login:**
-```bash
-TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "TestPass123"}' \
-  | jq -r '.access_token')
-
-echo "Token: $TOKEN"
-```
-
-**3. Upload Document:**
-```bash
-curl -X POST "http://localhost:8000/api/rag/upload" \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@backend/data/raw_pdfs/policy_on_adoption_of_oss.pdf"
-```
-
-**4. List User Documents:**
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/api/documents/documents | jq .
-```
-
-**5. Query Documents:**
-```bash
-curl -X POST "http://localhost:8000/api/rag/query" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is the policy about?", "k": 3}'
-```
-
----
-
-## System Requirements
-
-- **RAM:** 8 GB minimum (16 GB recommended)
-- **Disk:** 5-10 GB for models and embeddings
-- **CPU:** Multi-core processor recommended
-- **MongoDB:** Running locally or accessible via network
-- **Network:** Required for first-time model/embedding downloads
-
----
-
-## Performance Tips
-
-1. **Faster embedding:** Use `all-MiniLM-L6-v2` (smaller model)
-2. **Better quality:** Use `all-mpnet-base-v2` (larger, slower)
-3. **GPU acceleration:** Install FAISS with GPU support (optional)
-4. **Parallel tokenization:** Already set `TOKENIZERS_PARALLELISM=false`
-5. **Database:** Use MongoDB Atlas for cloud deployment
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   FastAPI Backend                       │
-├──────────────────────┬──────────────────────────────────┤
-│   Authentication     │    Document Management           │
-│  - User Registration │  - Upload & Parse PDFs           │
-│  - JWT Login         │  - Index with FAISS              │
-│  - Token Validation  │  - Store Metadata in MongoDB     │
-└──────────────────────┴──────────────────────────────────┘
-          │                          │
-          ▼                          ▼
-    ┌──────────────┐         ┌──────────────────┐
-    │   MongoDB    │         │   File Storage   │
-    │ - Users      │         │  - Chunks        │
-    │ - Documents  │         │  - FAISS Index   │
-    │ - Sessions   │         │                  │
-    └──────────────┘         └──────────────────┘
-```
-
----
-
-## Features
-
-✅ **User Management**
-- Secure registration and login
-- JWT-based authentication
-- Password hashing with bcrypt
-
-✅ **Document Management**
-- Multi-user document upload
-- Automatic PDF parsing and chunking
-- FAISS vector indexing
-- Document-level access control
-- Automatic PDF deletion after processing (storage optimization)
-
-✅ **RAG Capabilities**
-- Semantic search with FAISS
-- Integration with Ollama LLMs
-- Support for local and cloud-based models
-- Multilingual support
-
-✅ **Data Isolation**
-- Per-user document storage
-- Isolated FAISS indexes
-- User-specific MongoDB documents
-
----
-
-## License
-
-[Your License Here]
-
-## Support
-
-For issues or questions, please open an issue on the repository.
+- MongoDB errors: check your `.env` and confirm the database is running
+- Ollama errors: confirm `ollama pull phi3:mini` has completed and the Ollama service is up
+- OCR errors: confirm Tesseract is installed and language data is available
+- Upload errors: missing `python-multipart` is a common cause if the extra install step was skipped
+- Import errors for `jose`, `passlib`, or `PIL`: install the extra Python packages listed above
