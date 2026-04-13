@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { DocumentInsightsPanel } from "@/components/documents/document-insights-panel";
 import { AppShell } from "@/components/layout/app-shell";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ export default function DocumentDetailPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -64,17 +66,36 @@ export default function DocumentDetailPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Document Details</h1>
-            <p className="mt-1 text-sm text-muted">Inspect metadata and manage this uploaded file.</p>
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-3">
+            <Link href="/dashboard">
+              <Button variant="outline" size="sm">
+                <ArrowLeft size={14} className="mr-1" /> Back to Dashboard
+              </Button>
+            </Link>
+
+            {!loading && document ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge label={document.status || "indexed"} intent="success" />
+                  <p className="text-sm text-muted">Ask grounded questions about this one uploaded document.</p>
+                </div>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">{document.filename}</h1>
+              </div>
+            ) : (
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Document Workspace</h1>
+              </div>
+            )}
           </div>
-          <Link href="/dashboard">
-            <Button variant="outline">
-              <ArrowLeft size={14} className="mr-1" /> Back to Dashboard
+
+          {!loading && document ? (
+            <Button variant="outline" size="sm" onClick={() => setShowDetails((value) => !value)}>
+              {showDetails ? <ChevronUp size={14} className="mr-1" /> : <ChevronDown size={14} className="mr-1" />}
+              {showDetails ? "Hide Details" : "Show Details"}
             </Button>
-          </Link>
+          ) : null}
         </div>
 
         {error ? <Alert variant="error" message={error} /> : null}
@@ -89,44 +110,54 @@ export default function DocumentDetailPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="rounded-lg border border-dashed border-border bg-slate-50 p-6 text-center">
-                <p className="text-sm font-medium text-slate-700">No search results for this document</p>
+                <p className="text-sm font-medium text-slate-700">Document unavailable</p>
                 <p className="mt-1 text-sm text-muted">The document may have been deleted or is unavailable.</p>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>{document.filename}</CardTitle>
-              <CardDescription>Document ID: {document.doc_id}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                <div className="rounded-lg border border-border bg-slate-50 p-4">
-                  <dt className="text-xs uppercase tracking-wide text-muted">Status</dt>
-                  <dd className="mt-2"><Badge label={document.status || "indexed"} intent="success" /></dd>
-                </div>
-                <div className="rounded-lg border border-border bg-slate-50 p-4">
-                  <dt className="text-xs uppercase tracking-wide text-muted">Uploaded At</dt>
-                  <dd className="mt-2 font-medium text-slate-700">{new Date(document.created_at).toLocaleString()}</dd>
-                </div>
-                <div className="rounded-lg border border-border bg-slate-50 p-4">
-                  <dt className="text-xs uppercase tracking-wide text-muted">File Size</dt>
-                  <dd className="mt-2 font-medium text-slate-700">{(document.file_size / 1024).toFixed(1)} KB</dd>
-                </div>
-                <div className="rounded-lg border border-border bg-slate-50 p-4">
-                  <dt className="text-xs uppercase tracking-wide text-muted">Owner</dt>
-                  <dd className="mt-2 font-medium text-slate-700">{document.user_id}</dd>
-                </div>
-              </dl>
+          <div className="space-y-6">
+            {showDetails ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Document Details</CardTitle>
+                  <CardDescription>Metadata and management actions for this uploaded file.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <dl className="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-2xl border border-border bg-slate-50 p-4">
+                      <dt className="text-xs uppercase tracking-wide text-muted">Status</dt>
+                      <dd className="mt-2"><Badge label={document.status || "indexed"} intent="success" /></dd>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-slate-50 p-4">
+                      <dt className="text-xs uppercase tracking-wide text-muted">Uploaded At</dt>
+                      <dd className="mt-2 font-medium text-slate-700">{new Date(document.created_at).toLocaleString()}</dd>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-slate-50 p-4">
+                      <dt className="text-xs uppercase tracking-wide text-muted">File Size</dt>
+                      <dd className="mt-2 font-medium text-slate-700">{(document.file_size / 1024).toFixed(1)} KB</dd>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-slate-50 p-4">
+                      <dt className="text-xs uppercase tracking-wide text-muted">Owner</dt>
+                      <dd className="mt-2 break-all font-medium text-slate-700">{document.user_id}</dd>
+                    </div>
+                  </dl>
 
-              <div className="mt-6">
-                <Button variant="danger" onClick={() => setDeleteOpen(true)}>
-                  <Trash2 size={14} className="mr-1" /> Delete Document
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50/70 p-4">
+                    <div>
+                      <p className="text-sm font-medium text-red-900">Danger zone</p>
+                      <p className="mt-1 text-sm text-red-700">Delete this document and all processed index data.</p>
+                    </div>
+                    <Button variant="danger" onClick={() => setDeleteOpen(true)}>
+                      <Trash2 size={14} className="mr-1" /> Delete Document
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <DocumentInsightsPanel document={document} />
+          </div>
         )}
       </div>
 

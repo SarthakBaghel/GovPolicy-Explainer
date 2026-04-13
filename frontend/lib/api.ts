@@ -1,6 +1,13 @@
 import axios from "axios";
 import { getToken } from "@/lib/auth";
-import type { AuthResponse, DocumentItem, DocumentsResponse, UploadResponse } from "@/types";
+import type {
+  AuthResponse,
+  DocumentItem,
+  DocumentsResponse,
+  RagQueryResponse,
+  RagSearchItem,
+  UploadResponse,
+} from "@/types";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000",
@@ -17,6 +24,9 @@ api.interceptors.request.use((config) => {
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return `Could not reach the backend API at ${api.defaults.baseURL}.`;
+    }
     return (error.response?.data?.detail || error.response?.data?.message || error.message) as string;
   }
   return "Unexpected error. Please try again.";
@@ -48,6 +58,25 @@ export const documentApi = {
   },
   remove: async (docId: string) => {
     const response = await api.delete<{ message: string; doc_id: string }>(`/api/documents/documents/${docId}`);
+    return response.data;
+  },
+};
+
+export const ragApi = {
+  queryDocument: async (question: string, docName: string, k = 3) => {
+    const response = await api.post<RagQueryResponse>("/api/rag/query", {
+      question,
+      k,
+      doc_name: docName,
+    });
+    return response.data;
+  },
+  searchDocument: async (query: string, docName: string, k = 3) => {
+    const response = await api.post<RagSearchItem[]>("/api/rag/search", {
+      query,
+      k,
+      doc_name: docName,
+    });
     return response.data;
   },
 };

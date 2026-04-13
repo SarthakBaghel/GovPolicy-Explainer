@@ -33,3 +33,14 @@ export interface UploadResponse {
   index_dir: string;
   user_id: string;
 }
+
+export interface RagQueryResponse {
+  question: string;
+  answer: string;
+}
+
+export interface RagSearchItem {
+  score: number;
+  text: string;
+  source: string;
+}

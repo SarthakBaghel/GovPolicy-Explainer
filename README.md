@@ -1,160 +1,207 @@
 # GovPolicy Explainer
 
-GovPolicy Explainer is a FastAPI backend for uploading policy PDFs, breaking them into chunks, building FAISS indexes, and answering questions with Ollama. MongoDB is used for users and document metadata.
+GovPolicy Explainer is a full-stack RAG application for exploring government policy PDFs through a chat-style interface. Users can upload policy documents, index them for retrieval, and ask grounded questions against a specific document instead of manually scanning long PDFs.
 
-This repo is backend-only at the moment.
+It combines a Next.js frontend, a FastAPI backend, MongoDB for metadata, FAISS for semantic retrieval, and Ollama for local LLM inference.
 
-## What The Codebase Does
+## Demo
 
-- Registers users and issues JWT access tokens
-- Uploads PDFs through the API
-- Extracts headings, paragraphs, and tables from PDFs
-- Falls back to OCR for image-heavy pages
-- Builds a per-user, per-document FAISS index with SentenceTransformers
-- Stores document metadata in MongoDB
-- Lets users list, inspect, and delete their uploaded documents
+<video src="./docs/demo/govPolicy.mp4" controls width="100%"></video>
 
-## Main Stack
+If the embedded player does not render in your GitHub view, open the demo directly here: [govPolicy.mp4](./docs/demo/govPolicy.mp4)
 
-- FastAPI
-- MongoDB
-- FAISS
-- SentenceTransformers
-- Ollama (`phi3:mini` by default)
-- PyMuPDF, pdfplumber, pytesseract
+## Why I Built It
 
-## Repo Shape
+Government policy documents are often:
+
+- long and difficult to skim
+- inconsistent in structure
+- sometimes scanned instead of text-native
+- better understood through targeted questions than manual reading
+
+This project turns that workflow into:
+
+1. upload a document
+2. parse and index it
+3. ask natural-language questions
+4. inspect the most relevant supporting passages
+
+## What The App Does
+
+- user registration and login with JWT-based authentication
+- PDF upload and per-user document management
+- parsing of headings, paragraphs, and tables
+- OCR fallback for scanned pages
+- semantic indexing with SentenceTransformers + FAISS
+- document-specific question answering through Ollama
+- chat-style frontend for asking questions about a selected document
+- storage of user and document metadata in MongoDB
+
+## Tech Stack
+
+| Layer | Tech | Why it is used |
+| --- | --- | --- |
+| Frontend | Next.js 14, React, TypeScript | Builds the dashboard, document workspace, and chat-style Q&A UI |
+| Styling | Tailwind CSS | Fast UI composition and consistent component styling |
+| API Client | Axios | Handles frontend-to-backend API requests and auth headers |
+| Backend API | FastAPI | Exposes auth, upload, document, and RAG endpoints |
+| Authentication | JWT, Passlib | Handles login and protects document routes |
+| Database | MongoDB | Stores users and uploaded document metadata |
+| Retrieval | SentenceTransformers, FAISS | Creates embeddings and performs semantic similarity search |
+| LLM | Ollama (`phi3:mini`) | Generates grounded answers from retrieved policy chunks |
+| Document Parsing | PyMuPDF, pdfplumber | Extracts text structure, headings, and tables from PDFs |
+| OCR | pytesseract, Tesseract OCR | Handles scanned or image-based PDF pages |
+
+## How It Works
+
+```mermaid
+flowchart LR
+    A["Upload PDF from Next.js UI"] --> B["FastAPI upload route"]
+    B --> C["Parse PDF into structured chunks"]
+    C --> D["Generate embeddings with SentenceTransformers"]
+    D --> E["Store vectors in FAISS"]
+    B --> F["Store user/document metadata in MongoDB"]
+    G["Question asked in document workspace"] --> H["FastAPI RAG route"]
+    H --> E
+    E --> I["Retrieve top matching chunks"]
+    I --> J["Send context to Ollama"]
+    J --> K["Return answer to chat UI"]
+```
+
+## Current User Flow
+
+1. Create an account or log in
+2. Upload a policy PDF
+3. Open the document workspace
+4. Ask questions about that specific document
+5. Review grounded answers and supporting passages
+6. Manage or delete uploaded documents
+
+## Project Structure
 
 ```text
 backend/
   main.py                  FastAPI app entrypoint
-  routes/                  Auth, upload, document, and RAG routes
-  services/                Parsing, retrieval, and RAG service wrappers
-  scripts/                 PDF parsing, indexing, and CLI helpers
-  repositories/            MongoDB access for users and documents
-  core/                    Mongo config, JWT helpers, password hashing
-  data/
-    raw_pdfs/              Temporary upload location
-    outputs/               Parsed chunks and FAISS indexes
+  core/                    auth, JWT, Mongo config
+  repositories/            MongoDB data access
+  routes/                  auth, upload, document, and RAG routes
+  services/                parser, retriever, and RAG orchestration
+  scripts/                 PDF parsing, FAISS, and CLI helpers
+  data/                    raw uploads and generated outputs
 
-inspect_mongodb.py         Local MongoDB inspection helper
-migrate_mongodb.py         Local migration helper
-test_document_flow.py      End-to-end API smoke script
-test_verify_documents.py   MongoDB/document verification script
+frontend/
+  app/                     Next.js routes
+  components/              auth, dashboard, document, and UI components
+  lib/                     API client and auth helpers
+  hooks/                   frontend state hooks
+  types/                   shared TypeScript API types
+
+docs/demo/
+  govPolicy.mp4            demo video used in this README
 ```
 
-## Quick Start
+## Local Setup
 
-### 1. Create a virtual environment
+### Prerequisites
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 2. Install Python dependencies
-
-```bash
-pip install -r backend/requirements.txt
-pip install python-multipart python-jose passlib[argon2] Pillow
-```
-
-The second command is needed because those packages are imported by the code but are not currently listed in `backend/requirements.txt`.
-
-### 3. Install system dependencies
-
+- Python 3.10+
+- Node.js 18+
 - MongoDB
 - Ollama
 - Tesseract OCR
 
-The OCR path uses `eng+hin`, so make sure your Tesseract install includes Hindi language data if you want Hindi OCR to work.
+The OCR path uses `eng+hin`, so install Hindi language data in Tesseract if you want Hindi OCR support.
 
-### 4. Start required services
+### 1. Configure MongoDB
 
-```bash
-ollama pull phi3:mini
-```
-
-Start MongoDB and make sure Ollama is running before you launch the API.
-
-### 5. Create `.env` in the project root
+Create a `.env` file in the project root:
 
 ```env
 MONGODB_URL=mongodb://localhost:27017
 DATABASE_NAME=govpolicy_explainer
 ```
 
-Only MongoDB settings are read from `.env` right now. JWT settings are hardcoded in `backend/core/auth_config.py`.
+### 2. Start the backend
 
-### 6. Run the API
+Install backend dependencies:
 
 ```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install python-multipart python-jose passlib[argon2] Pillow
+cd ..
+```
+
+Pull the Ollama model:
+
+```bash
+ollama pull phi3:mini
+```
+
+Run the backend from the repository root while using the backend virtual environment:
+
+```bash
+cd backend
+source .venv/bin/activate
+cd ..
 uvicorn backend.main:app --reload
 ```
 
-Useful URLs:
+Backend URLs:
 
 - API root: `http://localhost:8000/`
 - Swagger docs: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
 
-## Typical API Flow
-
-### Register
+### 3. Start the frontend
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"SecurePassword123"}'
+cd frontend
+npm install
+cp .env.local.example .env.local
+npm run dev
 ```
 
-### Login
+The example frontend environment file points to the local backend:
 
-```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"SecurePassword123"}'
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-Use the returned bearer token for authenticated routes.
+Frontend URL:
 
-### Upload a PDF
+- App: `http://localhost:3000`
 
-```bash
-curl -X POST http://localhost:8000/api/rag/upload \
-  -H "Authorization: Bearer <token>" \
-  -F "file=@policy.pdf"
-```
+## Key Backend Endpoints
 
-On a successful upload, the app:
-
-- saves the file briefly under `backend/data/raw_pdfs/{user_id}/`
-- parses it into `backend/data/outputs/{user_id}/{doc_id}/policy_chunks.jsonl`
-- builds a FAISS index under `backend/data/outputs/{user_id}/{doc_id}/index/`
-- deletes the original uploaded PDF
-- stores document metadata in MongoDB
-
-### List or delete uploaded documents
-
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/rag/upload`
+- `POST /api/rag/query`
+- `POST /api/rag/search`
 - `GET /api/documents/documents`
 - `GET /api/documents/documents/{doc_id}`
 - `DELETE /api/documents/documents/{doc_id}`
 
-## Important Notes
+## Implementation Notes
 
-- The upload and document-management flow is the most complete path in the repo today.
-- The `POST /api/rag/query`, `POST /api/rag/search`, and `GET /api/rag/indexes` routes still reflect an older index layout. They are useful as developer-facing helpers, but they do not fully match the per-user upload structure.
-- Those RAG routes are not protected by JWT in the current code.
-- The root-level helper scripts are local/debug oriented and include hardcoded absolute paths, so they may need small edits before reuse on another machine.
+- Uploaded PDFs are processed into per-user, per-document output folders under `backend/data/outputs/{user_id}/{doc_id}/`
+- Original uploaded PDF files are deleted after successful parsing and indexing
+- MongoDB stores user accounts and document metadata
+- The frontend document workspace sends document-specific RAG requests using the selected document context
 
-## Sample Data
+## Why This Is Resume-Worthy
 
-The repo already contains example PDFs and generated output under `backend/data/`, which makes it easier to inspect the expected storage layout.
+This project demonstrates:
 
-## If Something Fails
+- full-stack product development with a modern frontend and Python backend
+- applied Retrieval-Augmented Generation, not just a generic chatbot wrapper
+- document parsing and OCR for messy real-world inputs
+- vector search and LLM orchestration
+- API design, auth, file uploads, and database integration
+- UX thinking through a document-focused Q&A workflow
 
-- MongoDB errors: check your `.env` and confirm the database is running
-- Ollama errors: confirm `ollama pull phi3:mini` has completed and the Ollama service is up
-- OCR errors: confirm Tesseract is installed and language data is available
-- Upload errors: missing `python-multipart` is a common cause if the extra install step was skipped
-- Import errors for `jose`, `passlib`, or `PIL`: install the extra Python packages listed above
+## Demo Asset
+
+The demo video included in this repository is located at [docs/demo/govPolicy.mp4](./docs/demo/govPolicy.mp4).
