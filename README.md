@@ -6,9 +6,9 @@ It combines a Next.js frontend, a FastAPI backend, MongoDB for metadata, FAISS f
 
 ## Demo
 
-<video src="./docs/demo/govPolicy.mp4" controls width="100%"></video>
+[![Watch Demo](./docs/demo/preview.png)](https://drive.google.com/file/d/1pvW70sn-0hNWLwBwP5dxJc0xQY3nVy2n/view?usp=sharing)
 
-If the embedded player does not render in your GitHub view, open the demo directly here: [govPolicy.mp4](./docs/demo/govPolicy.mp4)
+Click the preview above to watch the demo on Google Drive.
 
 ## Why I Built It
 
@@ -204,4 +204,4 @@ This project demonstrates:
 
 ## Demo Asset
 
-The demo video included in this repository is located at [docs/demo/govPolicy.mp4](./docs/demo/govPolicy.mp4).
+The README preview image is stored at [docs/demo/preview.png](./docs/demo/preview.png), and the demo video can be viewed here: [Google Drive demo link](https://drive.google.com/file/d/1pvW70sn-0hNWLwBwP5dxJc0xQY3nVy2n/view?usp=sharing).
